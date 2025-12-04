@@ -1,0 +1,307 @@
+import { useState, useEffect } from 'react';
+import { Entity, Hypothesis, HypothesisStatus } from '../types';
+
+interface SelectedConnection {
+  from: Entity;
+  to: Entity;
+}
+
+interface ResearchPanelProps {
+  entities: Entity[];
+  hypothesis: Hypothesis;
+  onHypothesisChange: (hypothesis: Hypothesis) => void;
+  selectedConnection: SelectedConnection | null;
+  selectedEntity: Entity | null;
+  isCreateNewMode: boolean;
+  onCreateNew: () => void;
+  onSaveNewHypothesis?: () => void;
+}
+
+const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConnection, selectedEntity, isCreateNewMode, onCreateNew, onSaveNewHypothesis }: ResearchPanelProps) => {
+  const [localHypothesis, setLocalHypothesis] = useState<Hypothesis>(hypothesis);
+  const [newEntityType, setNewEntityType] = useState<Entity['type']>('disease');
+  const [newEntityName, setNewEntityName] = useState<string>('New');
+  const [newHypothesisText, setNewHypothesisText] = useState<string>('');
+
+  // Sync local state with prop changes
+  useEffect(() => {
+    setLocalHypothesis(hypothesis);
+  }, [hypothesis]);
+
+  const handleChange = (updates: Partial<Hypothesis>) => {
+    const updated = { ...localHypothesis, ...updates };
+    setLocalHypothesis(updated);
+    onHypothesisChange(updated);
+  };
+
+  return (
+    <div className="h-full flex flex-col p-4 overflow-y-auto">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold text-gray-800">Research Panel</h2>
+        <button 
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          onClick={onCreateNew}
+        >
+          Create new
+        </button>
+      </div>
+
+      {/* Selected Hypothesis Container / Create New Hypothesis */}
+      <div className="mb-4">
+        {isCreateNewMode ? (
+          <>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">New hypothesis</h3>
+            <div className="space-y-3">
+              {/* First pair: Selected card (if any) */}
+              {selectedEntity ? (
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                      value={selectedEntity.name}
+                      readOnly
+                    />
+                    <select
+                      className="w-32 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                      value={selectedEntity.type}
+                      disabled
+                    >
+                      <option value="disease">Disease</option>
+                      <option value="target">Target</option>
+                      <option value="drug">Drug</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                      placeholder="Select a card in the graph"
+                      readOnly
+                    />
+                    <select
+                      className="w-32 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                      disabled
+                    >
+                      <option value="disease">Disease</option>
+                      <option value="target">Target</option>
+                      <option value="drug">Drug</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+              {/* Second pair: New entity */}
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                    value={newEntityName}
+                    onChange={(e) => setNewEntityName(e.target.value)}
+                    placeholder="Enter entity name"
+                  />
+                  <select
+                    className="w-32 px-3 py-2 border border-gray-300 rounded text-sm"
+                    value={newEntityType}
+                    onChange={(e) => setNewEntityType(e.target.value as Entity['type'])}
+                  >
+                    <option value="disease">Disease</option>
+                    <option value="target">Target</option>
+                    <option value="drug">Drug</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Hypothesis Text for New Hypothesis */}
+            <div className="mt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Request</h3>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"
+                rows={6}
+                value={newHypothesisText}
+                onChange={(e) => setNewHypothesisText(e.target.value)}
+                placeholder="Provide new hypothesis description"
+              />
+            </div>
+            
+            {/* Save Button */}
+            <div className="mt-4">
+              <button
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                onClick={() => {
+                  if (onSaveNewHypothesis) {
+                    onSaveNewHypothesis();
+                    // Reset form
+                    setNewEntityName('New');
+                    setNewHypothesisText('');
+                    setNewEntityType('disease');
+                  }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Selected hypothesis</h3>
+            {selectedConnection ? (
+              <div className="space-y-3">
+            {/* First pair: Top card (to) */}
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                  value={selectedConnection.to.name}
+                  readOnly
+                />
+                <select
+                  className="w-32 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                  value={selectedConnection.to.type}
+                  disabled
+                >
+                  <option value="disease">Disease</option>
+                  <option value="target">Target</option>
+                  <option value="drug">Drug</option>
+                </select>
+              </div>
+            </div>
+            {/* Second pair: Bottom card (from) */}
+            <div className="space-y-1">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                  value={selectedConnection.from.name}
+                  readOnly
+                />
+                <select
+                  className="w-32 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+                  value={selectedConnection.from.type}
+                  disabled
+                >
+                  <option value="disease">Disease</option>
+                  <option value="target">Target</option>
+                  <option value="drug">Drug</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        ) : (
+              <div className="text-sm text-gray-500 italic">
+                Select a connection in the graph to view hypothesis
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Hypothesis Text */}
+      {!isCreateNewMode && (
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Full hypothesis text</h3>
+          <textarea
+            className="w-full px-3 py-2 border border-gray-300 rounded text-sm resize-none"
+            rows={6}
+            value={localHypothesis.text}
+            onChange={(e) => handleChange({ text: e.target.value })}
+            placeholder="Enter hypothesis text..."
+          />
+        </div>
+      )}
+
+      {/* Filter Section - Only show when not in create new mode */}
+      {!isCreateNewMode && (
+        <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-gray-700">Filter</h3>
+
+        {/* Status */}
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Status</label>
+          <select
+            className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+            value={localHypothesis.status}
+            onChange={(e) => handleChange({ status: e.target.value as HypothesisStatus })}
+          >
+            <option value="Fact">Fact</option>
+            <option value="Case study">Case study</option>
+            <option value="Early hypothesis">Early hypothesis</option>
+            <option value="Clinical testing">Clinical testing</option>
+            <option value="Unapproved">Unapproved</option>
+            <option value="All">All</option>
+          </select>
+        </div>
+
+        {/* Relevancy Threshold */}
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">
+            Relevancy threshold, %: {localHypothesis.relevancyThreshold}
+          </label>
+          <input
+            type="range"
+            min="50"
+            max="100"
+            value={localHypothesis.relevancyThreshold}
+            onChange={(e) => handleChange({ relevancyThreshold: parseInt(e.target.value) })}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>50</span>
+            <span>100</span>
+          </div>
+        </div>
+
+        {/* Citation */}
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">
+            Citation: {localHypothesis.citationThreshold}
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={localHypothesis.citationThreshold}
+            onChange={(e) => handleChange({ citationThreshold: parseInt(e.target.value) })}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0</span>
+            <span>100</span>
+          </div>
+        </div>
+
+        {/* Checkboxes */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={localHypothesis.includeRelatedSearches}
+              onChange={(e) => handleChange({ includeRelatedSearches: e.target.checked })}
+              className="rounded"
+            />
+            <span>Include related searches</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={localHypothesis.englishOnly}
+              onChange={(e) => handleChange({ englishOnly: e.target.checked })}
+              className="rounded"
+            />
+            <span>English only</span>
+          </label>
+        </div>
+      </div>
+      )}
+    </div>
+  );
+};
+
+export default ResearchPanel;
+
