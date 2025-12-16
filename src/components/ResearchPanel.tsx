@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Entity, Hypothesis, HypothesisStatus } from '../types';
+import { fetchEntityTypes, BackendEntityType } from '../services/api';
 
 interface SelectedConnection {
   from: Entity;
@@ -14,19 +15,76 @@ interface ResearchPanelProps {
   selectedEntity: Entity | null;
   isCreateNewMode: boolean;
   onCreateNew: () => void;
-  onSaveNewHypothesis?: () => void;
+  onSaveNewHypothesis?: (primaryItem: string, secondaryItem: string, hypothesis: string) => void;
 }
 
 const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConnection, selectedEntity, isCreateNewMode, onCreateNew, onSaveNewHypothesis }: ResearchPanelProps) => {
+  // entities prop is available for future use (e.g., dropdown of available entities)
+  void entities;
   const [localHypothesis, setLocalHypothesis] = useState<Hypothesis>(hypothesis);
-  const [newEntityType, setNewEntityType] = useState<Entity['type']>('disease');
+  const [newEntityType, setNewEntityType] = useState<string>('');
   const [newEntityName, setNewEntityName] = useState<string>('New');
   const [newHypothesisText, setNewHypothesisText] = useState<string>('');
+  const [firstEntityType, setFirstEntityType] = useState<string>('');
+  const [firstEntityName, setFirstEntityName] = useState<string>('');
+  const [entityTypes, setEntityTypes] = useState<BackendEntityType[]>([]);
+  const [isLoadingEntityTypes, setIsLoadingEntityTypes] = useState(false);
 
   // Sync local state with prop changes
   useEffect(() => {
     setLocalHypothesis(hypothesis);
   }, [hypothesis]);
+
+  // Fetch entity types when entering create new mode
+  useEffect(() => {
+    if (isCreateNewMode) {
+      setIsLoadingEntityTypes(true);
+      fetchEntityTypes()
+        .then((types) => {
+          setEntityTypes(types);
+          // Set default values if not already set
+          if (types.length > 0) {
+            if (!firstEntityType) {
+              setFirstEntityType(String(types[0].id));
+            }
+            if (!newEntityType) {
+              setNewEntityType(String(types[0].id));
+            }
+          }
+          setIsLoadingEntityTypes(false);
+        })
+        .catch((error) => {
+          console.error('Error fetching entity types:', error);
+          setIsLoadingEntityTypes(false);
+        });
+    } else {
+      // Clear entity types when leaving create new mode
+      setEntityTypes([]);
+      setFirstEntityType('');
+      setNewEntityType('');
+    }
+  }, [isCreateNewMode]);
+
+  // Sync first entity state with selectedEntity when it changes
+  useEffect(() => {
+    if (selectedEntity) {
+      setFirstEntityName(selectedEntity.name);
+      // Find matching entity type by name or use first available
+      const matchingType = entityTypes.find(et => 
+        et.name.toLowerCase() === selectedEntity.type.toLowerCase()
+      );
+      if (matchingType) {
+        setFirstEntityType(String(matchingType.id));
+      } else if (entityTypes.length > 0) {
+        setFirstEntityType(String(entityTypes[0].id));
+      }
+    } else {
+      setFirstEntityName('');
+      if (entityTypes.length > 0) {
+        setFirstEntityType(String(entityTypes[0].id));
+      }
+    }
+  }, [selectedEntity, entityTypes]);
 
   const handleChange = (updates: Partial<Hypothesis>) => {
     const updated = { ...localHypothesis, ...updates };
@@ -39,12 +97,21 @@ const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConne
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-gray-800">Research Panel</h2>
-        <button 
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-          onClick={onCreateNew}
-        >
-          Create new
-        </button>
+        {isCreateNewMode ? (
+          <button 
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+            onClick={onCreateNew}
+          >
+            Close
+          </button>
+        ) : (
+          <button 
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+            onClick={onCreateNew}
+          >
+            Create new
+          </button>
+        )}
       </div>
 
       {/* Selected Hypothesis Container / Create New Hypothesis */}
@@ -53,47 +120,36 @@ const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConne
           <>
             <h3 className="text-sm font-semibold text-gray-700 mb-2">New hypothesis</h3>
             <div className="space-y-3">
-              {/* First pair: Selected card (if any) */}
-              {selectedEntity ? (
-                <div className="space-y-1">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
-                      value={selectedEntity.name}
-                      readOnly
-                    />
-                    <select
-                      className="w-32 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
-                      value={selectedEntity.type}
-                      disabled
-                    >
-                      <option value="disease">Disease</option>
-                      <option value="target">Target</option>
-                      <option value="drug">Drug</option>
-                    </select>
-                  </div>
+              {/* First pair: Editable entity */}
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                    value={firstEntityName}
+                    onChange={(e) => setFirstEntityName(e.target.value)}
+                    placeholder="Enter entity name or select a card"
+                  />
+                  <select
+                    className="w-32 px-3 py-2 border border-gray-300 rounded text-sm"
+                    value={firstEntityType}
+                    onChange={(e) => setFirstEntityType(e.target.value)}
+                    disabled={isLoadingEntityTypes || entityTypes.length === 0}
+                  >
+                    {isLoadingEntityTypes ? (
+                      <option value="">Loading...</option>
+                    ) : entityTypes.length === 0 ? (
+                      <option value="">No types</option>
+                    ) : (
+                      entityTypes.map((type) => (
+                        <option key={type.id} value={String(type.id)}>
+                          {type.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
-                      placeholder="Select a card in the graph"
-                      readOnly
-                    />
-                    <select
-                      className="w-32 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
-                      disabled
-                    >
-                      <option value="disease">Disease</option>
-                      <option value="target">Target</option>
-                      <option value="drug">Drug</option>
-                    </select>
-                  </div>
-                </div>
-              )}
+              </div>
               {/* Second pair: New entity */}
               <div className="space-y-1">
                 <div className="flex gap-2">
@@ -107,11 +163,20 @@ const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConne
                   <select
                     className="w-32 px-3 py-2 border border-gray-300 rounded text-sm"
                     value={newEntityType}
-                    onChange={(e) => setNewEntityType(e.target.value as Entity['type'])}
+                    onChange={(e) => setNewEntityType(e.target.value)}
+                    disabled={isLoadingEntityTypes || entityTypes.length === 0}
                   >
-                    <option value="disease">Disease</option>
-                    <option value="target">Target</option>
-                    <option value="drug">Drug</option>
+                    {isLoadingEntityTypes ? (
+                      <option value="">Loading...</option>
+                    ) : entityTypes.length === 0 ? (
+                      <option value="">No types</option>
+                    ) : (
+                      entityTypes.map((type) => (
+                        <option key={type.id} value={String(type.id)}>
+                          {type.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
@@ -129,21 +194,22 @@ const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConne
               />
             </div>
             
-            {/* Save Button */}
+            {/* Validate Button */}
             <div className="mt-4">
               <button
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
                 onClick={() => {
                   if (onSaveNewHypothesis) {
-                    onSaveNewHypothesis();
-                    // Reset form
-                    setNewEntityName('New');
-                    setNewHypothesisText('');
-                    setNewEntityType('disease');
+                    onSaveNewHypothesis(
+                      firstEntityName,
+                      newEntityName,
+                      newHypothesisText
+                    );
+                    // Note: Form is NOT reset and mode is NOT switched - user stays in create new mode
                   }
                 }}
               >
-                Save
+                Validate
               </button>
             </div>
           </>
@@ -245,14 +311,14 @@ const ResearchPanel = ({ entities, hypothesis, onHypothesisChange, selectedConne
           </label>
           <input
             type="range"
-            min="50"
+            min="0"
             max="100"
             value={localHypothesis.relevancyThreshold}
             onChange={(e) => handleChange({ relevancyThreshold: parseInt(e.target.value) })}
             className="w-full"
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>50</span>
+            <span>0</span>
             <span>100</span>
           </div>
         </div>

@@ -223,14 +223,15 @@ const HypothesisGraph = ({ entities, onEntityMove, onConnectionSelect, onEntityS
         return (
           <div
             key={entity.id}
-            className={`absolute ${getEntityColor(entity.type)} rounded-lg shadow-lg p-4 cursor-grab active:cursor-grabbing border-2 min-w-[120px] text-center transition-transform ${
-              isSelected ? 'border-yellow-500' : isEntitySelectedForNew ? 'border-blue-500' : 'border-gray-700'
-            } ${
+            className={`absolute ${getEntityColor(entity.type)} rounded-lg shadow-lg p-4 cursor-grab active:cursor-grabbing min-w-[120px] text-center transition-transform ${
               draggedEntity === entity.id ? 'scale-105 z-10' : 'z-0'
             }`}
             style={{
               left: `${entity.x}px`,
               top: `${entity.y}px`,
+              borderWidth: isSelected ? '5px' : isEntitySelectedForNew ? '5px' : '2px',
+              borderColor: isSelected ? '#DC2626' : isEntitySelectedForNew ? '#DC2626' : '#374151',
+              borderStyle: 'solid',
             }}
             onMouseDown={(e) => handleMouseDown(e, entity.id)}
             onClick={(e) => handleEntityClick(e, entity.id)}

@@ -37,6 +37,16 @@ export type HypothesisStatus =
   | 'Unapproved' 
   | 'All';
 
+export interface ValidationResult {
+  isValid: boolean;
+  score?: number;
+  reasoning?: string;
+  relevancy?: number;
+  validity?: number;
+  keyTake?: string;
+  [key: string]: any; // Allow for additional fields from backend
+}
+
 export interface Article {
   id: string;
   publicationName: string;
@@ -50,5 +60,6 @@ export interface Article {
   similarArticlesCount: number;
   citationsCount: number;
   isFavorite?: boolean;
+  validationResult?: ValidationResult;
 }
 
