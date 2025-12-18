@@ -22,6 +22,34 @@ export const initialEntities: Entity[] = [
     x: 150,
     y: 350,
   },
+  {
+    id: '4',
+    name: 'Obesity - Peripheral mechanisms',
+    type: 'disease',
+    x: 150,
+    y: 500,
+  },
+  {
+    id: '5',
+    name: 'Glycemic control',
+    type: 'disease',
+    x: 150,
+    y: 600,
+  },
+  {
+    id: '6',
+    name: 'Food intake',
+    type: 'disease',
+    x: 150,
+    y: 700
+  },
+  {
+    id: '7',
+    name: 'Weight loss',
+    type: 'disease',
+    x: 150,
+    y: 800
+  },
 ];
 
 export const mockArticles: Article[] = [

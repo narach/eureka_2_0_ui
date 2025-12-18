@@ -7,6 +7,7 @@ interface SearchResultsProps {
   showFavoritesOnly: boolean;
   onToggleFavoritesFilter: () => void;
   onToggleFavorite: (articleId: string) => void;
+  onAddToBoard?: (articleId: string) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -16,6 +17,7 @@ const SearchResults = ({
   showFavoritesOnly,
   onToggleFavoritesFilter,
   onToggleFavorite,
+  onAddToBoard,
   isLoading = false,
   error = null,
 }: SearchResultsProps) => {
@@ -128,6 +130,7 @@ const SearchResults = ({
               key={article.id}
               article={article}
               onToggleFavorite={onToggleFavorite}
+              onAddToBoard={onAddToBoard}
             />
           ))
         )}

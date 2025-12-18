@@ -3,11 +3,29 @@ import { Article } from '../types';
 interface ArticleCardProps {
   article: Article;
   onToggleFavorite: (articleId: string) => void;
+  onAddToBoard?: (articleId: string) => void;
 }
 
-const ArticleCard = ({ article, onToggleFavorite }: ArticleCardProps) => {
+const ArticleCard = ({ article, onToggleFavorite, onAddToBoard }: ArticleCardProps) => {
   return (
     <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+      {/* Main item and Secondary item */}
+      {(article.mainItem || article.secondaryItem) && (
+        <div className="flex flex-wrap gap-2 mb-3" style={{ fontSize: '18px' }}>
+          {article.mainItem && (
+            <span className="font-bold">
+              Main: <span className="font-bold">{article.mainItem}</span>
+            </span>
+          )}
+          {article.mainItem && article.secondaryItem && <span>•</span>}
+          {article.secondaryItem && (
+            <span className="font-bold">
+              Secondary: <span className="font-bold">{article.secondaryItem}</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Publication name with hyperlink */}
       <h3 className="mb-2">
         <a
@@ -130,13 +148,23 @@ const ArticleCard = ({ article, onToggleFavorite }: ArticleCardProps) => {
         </div>
       )}
 
-      {/* Favorite button */}
-      <button
-        onClick={() => onToggleFavorite(article.id)}
-        className="mt-3 text-xs text-blue-600 hover:text-blue-800 underline"
-      >
-        {article.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-      </button>
+      {/* Bottom buttons */}
+      <div className="mt-3 flex justify-between items-center">
+        <button
+          onClick={() => onToggleFavorite(article.id)}
+          className="text-xs text-blue-600 hover:text-blue-800 underline"
+        >
+          {article.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        </button>
+        {onAddToBoard && (
+          <button
+            onClick={() => onAddToBoard(article.id)}
+            className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Add to the Board
+          </button>
+        )}
+      </div>
     </div>
   );
 };

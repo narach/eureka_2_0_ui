@@ -13,6 +13,10 @@ interface BackendArticle {
   id: number;
   title: string;
   url: string;
+  topic?: string;
+  research_id?: number;
+  main_item?: string;
+  secondary_item?: string;
 }
 
 /**
@@ -73,6 +77,8 @@ interface BackendSearchArticle {
   url: string;
   topic: string;
   research_id: number;
+  main_item?: string;
+  secondary_item?: string;
 }
 
 /**
@@ -100,7 +106,7 @@ export async function fetchArticles(): Promise<Article[]> {
       id: String(backendArticle.id),
       publicationName: backendArticle.title,
       publicationUrl: backendArticle.url,
-      summary: '', // Not provided by backend, will be empty
+      summary: backendArticle.topic || '', // Use topic as summary if available
       authors: [], // Not provided by backend, will be empty
       source: '', // Not provided by backend, will be empty
       publicationDate: '', // Not provided by backend, will be empty
@@ -109,6 +115,8 @@ export async function fetchArticles(): Promise<Article[]> {
       similarArticlesCount: 0, // Not provided by backend, will be 0
       citationsCount: 0, // Not provided by backend, will be 0
       isFavorite: false,
+      mainItem: backendArticle.main_item,
+      secondaryItem: backendArticle.secondary_item,
     }));
   } catch (error) {
     console.error('Error fetching articles:', error);
@@ -323,8 +331,8 @@ export async function validateHypothesisByArticleId(
 
 /**
  * Creates a new hypothesis and fetches/validates articles
- * @param primaryItem - The primary item (first entity name)
- * @param secondaryItem - The secondary item (second entity name)
+ * @param primaryItem - The primary item (first entity name) - not used in API call but kept for future use
+ * @param secondaryItem - The secondary item (second entity name) - not used in API call but kept for future use
  * @param hypothesis - The hypothesis text
  */
 export async function createNewHypothesisAndGetArticles(
@@ -333,64 +341,31 @@ export async function createNewHypothesisAndGetArticles(
   hypothesis: string
 ): Promise<ArticleWithValidation[]> {
   try {
-    // Step 1: Search for researches
-    const researches = await searchResearches(primaryItem, secondaryItem);
-    
-    if (researches.length === 0) {
-      throw new Error('No researches found for the given items');
-    }
-    
-    // Step 2: Take the first research
-    const research = researches[0];
-    
-    // Step 3: Get articles for the research
-    const articles = await searchArticlesByResearch(research.id);
+    // Step 1: Fetch all available articles
+    const articles = await fetchArticles();
     
     if (articles.length === 0) {
       return [];
     }
     
-    // Step 4: Validate each article
+    // Step 2: Validate each article against the hypothesis
     const articlesWithValidation = await Promise.all(
       articles.map(async (article) => {
         try {
-          const validationResult = await validateHypothesisByArticleId(
-            article.id,
+          const validationResult = await validateHypothesis(
+            article.publicationUrl,
             hypothesis
           );
           
-          // Map backend article format to our Article interface
           return {
-            id: String(article.id),
-            publicationName: article.title,
-            publicationUrl: article.url,
-            summary: article.topic || '', // Use topic as summary if available
-            authors: [],
-            source: '',
-            publicationDate: '',
-            relevancyScore: validationResult.relevancy || 0,
-            status: '',
-            similarArticlesCount: 0,
-            citationsCount: 0,
-            isFavorite: false,
+            ...article,
             validationResult,
           };
         } catch (error) {
           console.error(`Error validating article ${article.id}:`, error);
           // Return article without validation result if validation fails
           return {
-            id: String(article.id),
-            publicationName: article.title,
-            publicationUrl: article.url,
-            summary: article.topic || '',
-            authors: [],
-            source: '',
-            publicationDate: '',
-            relevancyScore: 0,
-            status: '',
-            similarArticlesCount: 0,
-            citationsCount: 0,
-            isFavorite: false,
+            ...article,
             validationResult: undefined,
           };
         }

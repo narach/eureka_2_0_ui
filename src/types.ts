@@ -61,5 +61,7 @@ export interface Article {
   citationsCount: number;
   isFavorite?: boolean;
   validationResult?: ValidationResult;
+  mainItem?: string;
+  secondaryItem?: string;
 }
 

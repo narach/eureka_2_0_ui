@@ -31,7 +31,7 @@ const HypothesisGraph = ({ entities, onEntityMove, onConnectionSelect, onEntityS
   const isDraggingRef = useRef(false);
 
   const handleMouseDown = (e: React.MouseEvent, entityId: string) => {
-    const entity = entities.find(e => e.id === entityId);
+    const entity = entities.find(ent => ent.id === entityId);
     if (!entity) return;
 
     const containerRect = containerRef.current?.getBoundingClientRect();
@@ -49,8 +49,9 @@ const HypothesisGraph = ({ entities, onEntityMove, onConnectionSelect, onEntityS
 
   const handleEntityClick = (e: React.MouseEvent, entityId: string) => {
     // Only trigger click if we didn't drag
+    void e; // Event parameter not used but required for onClick
     if (!isDraggingRef.current) {
-      const entity = entities.find(e => e.id === entityId);
+      const entity = entities.find(ent => ent.id === entityId);
       if (entity && onEntitySelect) {
         const newSelection = selectedEntity === entityId ? null : entityId;
         setSelectedEntity(newSelection);
@@ -105,17 +106,67 @@ const HypothesisGraph = ({ entities, onEntityMove, onConnectionSelect, onEntityS
   // Create connections based on entity order (Obesity <- GLP-1 receptor <- Ozempic)
   // For vertical layout: bottom card (higher y) -> top card (lower y)
   const connections: Array<{ from: Entity; to: Entity; id: number }> = [];
-  const sortedEntities = [...entities].sort((a, b) => {
-    // Sort by y position (top to bottom) for vertical layout
-    return a.y - b.y;
-  });
+  
+  // Find Ozempic entity
+  const ozempicEntity = entities.find(e => e.id === '3');
+
+  // Find entities to the right of Ozempic (these should only connect FROM Ozempic, not to other entities)
+  const entitiesToRightOfOzempic = ozempicEntity 
+    ? entities.filter(e => 
+        e.id !== ozempicEntity.id &&
+        Math.abs(e.y - ozempicEntity.y) < 50 && // Same y level (within 50px)
+        e.x > ozempicEntity.x // To the right
+      ).map(e => e.id)
+    : [];
+
+  // Create standard vertical connections between adjacent entities
+  // Only connect entities that are vertically aligned (same x position, within tolerance)
+  // Exclude entities that are to the right of Ozempic from vertical connections
+  const sortedEntities = [...entities]
+    .filter(e => !entitiesToRightOfOzempic.includes(e.id)) // Exclude entities to the right of Ozempic
+    .sort((a, b) => {
+      // Sort by y position (top to bottom) for vertical layout
+      return a.y - b.y;
+    });
 
   for (let i = 0; i < sortedEntities.length - 1; i++) {
-    // Bottom card (higher y) connects to top card (lower y)
-    connections.push({
-      from: sortedEntities[i + 1], // Bottom card
-      to: sortedEntities[i], // Top card
-      id: i,
+    const bottomEntity = sortedEntities[i + 1];
+    const topEntity = sortedEntities[i];
+    
+    // Only create connection if entities are vertically aligned (same x position, within 50px tolerance)
+    if (Math.abs(bottomEntity.x - topEntity.x) < 50) {
+      connections.push({
+        from: bottomEntity, // Bottom card (higher y)
+        to: topEntity, // Top card (lower y)
+        id: connections.length,
+      });
+    }
+  }
+
+  // Special case: Create connections from Ozempic to entities to the right of it
+  // (entities that are to the right of Ozempic at the same y level)
+  if (ozempicEntity) {
+    const rightEntities = entities.filter(e => 
+      e.id !== ozempicEntity.id &&
+      Math.abs(e.y - ozempicEntity.y) < 50 && // Same y level (within 50px)
+      e.x > ozempicEntity.x // To the right
+    );
+    
+    // Add connections from Ozempic to entities to the right of it
+    rightEntities.forEach((entity) => {
+      // Check if this connection doesn't already exist
+      const connectionExists = connections.some(conn => 
+        (conn.from.id === ozempicEntity.id && conn.to.id === entity.id) ||
+        (conn.from.id === entity.id && conn.to.id === ozempicEntity.id)
+      );
+      
+      if (!connectionExists) {
+        connections.push({
+          from: ozempicEntity,
+          to: entity,
+          id: connections.length,
+        });
+      }
     });
   }
 

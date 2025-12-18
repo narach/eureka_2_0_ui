@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import HypothesisGraph from './components/HypothesisGraph';
-import ResearchPanel from './components/ResearchPanel';
+import ResearchPanel, { ResearchPanelRef } from './components/ResearchPanel';
 import SearchResults from './components/SearchResults';
 import { Entity, Hypothesis, Article } from './types';
 import { initialEntities, mockArticles } from './mockData';
@@ -35,6 +35,7 @@ function App() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [isLoadingArticles, setIsLoadingArticles] = useState(false);
   const [articlesError, setArticlesError] = useState<string | null>(null);
+  const researchPanelRef = useRef<ResearchPanelRef>(null);
 
   const handleEntityMove = (id: string, x: number, y: number) => {
     setEntities(entities.map(e => e.id === id ? { ...e, x, y } : e));
@@ -97,13 +98,107 @@ function App() {
     setSelectedHypothesis(hypothesis);
   };
 
+  const handleSearchHypothesis = (hypothesisText: string) => {
+    // Only trigger validation if there's a selected connection
+    if (selectedConnection) {
+      setIsLoadingArticles(true);
+      setArticlesError(null);
+      
+      fetchAndValidateArticles(
+        hypothesisText,
+        selectedConnection.from,
+        selectedConnection.to
+      )
+        .then((validatedArticles) => {
+          setArticles(validatedArticles);
+          setIsLoadingArticles(false);
+        })
+        .catch((error) => {
+          console.error('Error fetching and validating articles:', error);
+          setArticlesError(error instanceof Error ? error.message : 'Failed to fetch articles');
+          setIsLoadingArticles(false);
+        });
+    }
+  };
+
   const toggleFavorite = (articleId: string) => {
     setArticles(articles.map(a => 
       a.id === articleId ? { ...a, isFavorite: !a.isFavorite } : a
     ));
   };
 
+  const handleAddToBoard = (articleId: string) => {
+    // Find the article
+    const article = articles.find(a => a.id === articleId);
+    if (!article || !article.secondaryItem) {
+      console.warn('Article not found or missing secondaryItem');
+      return;
+    }
+
+    // Find Ozempic entity (id: '3')
+    const ozempicEntity = entities.find(e => e.id === '3');
+    if (!ozempicEntity) {
+      console.warn('Ozempic entity not found');
+      return;
+    }
+
+    // Check if entity with this secondaryItem already exists
+    const existingEntity = entities.find(e => e.name === article.secondaryItem);
+    if (existingEntity) {
+      console.warn('Entity with this name already exists');
+      return;
+    }
+
+    // Generate a new unique ID for the new entity
+    const maxId = Math.max(...entities.map(e => parseInt(e.id) || 0));
+    const newEntityId = String(maxId + 1);
+
+    // Place the new entity to the right of Ozempic
+    // Find entities to the right of Ozempic (same y level, higher x) to determine position
+    const entitiesToRightOfOzempic = entities.filter(e => 
+      e.id !== ozempicEntity.id &&
+      Math.abs(e.y - ozempicEntity.y) < 50 && // Same y level (within 50px)
+      e.x > ozempicEntity.x // To the right
+    );
+    const newX = entitiesToRightOfOzempic.length > 0 
+      ? Math.max(...entitiesToRightOfOzempic.map(e => e.x)) + 200 // Place 200px to the right of the rightmost entity
+      : ozempicEntity.x + 200; // Place 200px to the right of Ozempic if no entities to the right
+
+    // Create new entity
+    const newEntity: Entity = {
+      id: newEntityId,
+      name: article.secondaryItem,
+      type: 'disease',
+      x: newX,
+      y: ozempicEntity.y, // Same y position as Ozempic
+    };
+
+    // Add the new entity to the entities array
+    setEntities([...entities, newEntity]);
+
+    // Update hypothesis text to append the new fact
+    const newFact = 'Take this fact into account: Ozempic, a successful drug for Obesity treatment, is also used to treat Type 2 Diabetes';
+    
+    if (isCreateNewMode) {
+      // In "New Hypothesis" mode, update the new hypothesis text via ref
+      if (researchPanelRef.current) {
+        researchPanelRef.current.appendToNewHypothesis(newFact);
+      }
+    } else {
+      // In normal mode, update the selected hypothesis text
+      const updatedText = selectedHypothesis.text 
+        ? `${selectedHypothesis.text}\n\n${newFact}`
+        : newFact;
+      
+      setSelectedHypothesis({
+        ...selectedHypothesis,
+        text: updatedText,
+      });
+    }
+  };
+
   // Fetch and validate articles when a connection is selected
+  // Note: This only runs when selectedConnection changes, NOT when hypothesis text changes
   useEffect(() => {
     if (selectedConnection) {
       setIsLoadingArticles(true);
@@ -123,12 +218,13 @@ function App() {
           setArticlesError(error instanceof Error ? error.message : 'Failed to fetch articles');
           setIsLoadingArticles(false);
         });
-    } else {
-      // Clear articles when connection is deselected
+    } else if (!isCreateNewMode) {
+      // Clear articles when connection is deselected (but not in create new mode)
       setArticles([]);
       setArticlesError(null);
     }
-  }, [selectedConnection, selectedHypothesis.text]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConnection, isCreateNewMode]);
 
   return (
     <div className="h-screen w-screen flex bg-gray-50">
@@ -154,6 +250,7 @@ function App() {
       {/* Research Panel - 25% */}
       <div className="w-[25%] border-r border-gray-300 bg-white">
         <ResearchPanel
+          ref={researchPanelRef}
           entities={entities}
           hypothesis={selectedHypothesis}
           onHypothesisChange={handleHypothesisChange}
@@ -162,6 +259,7 @@ function App() {
           isCreateNewMode={isCreateNewMode}
           onCreateNew={handleCreateNew}
           onSaveNewHypothesis={handleSaveNewHypothesis}
+          onSearchHypothesis={handleSearchHypothesis}
         />
       </div>
 
@@ -172,6 +270,7 @@ function App() {
           showFavoritesOnly={showFavoritesOnly}
           onToggleFavoritesFilter={() => setShowFavoritesOnly(!showFavoritesOnly)}
           onToggleFavorite={toggleFavorite}
+          onAddToBoard={handleAddToBoard}
           isLoading={isLoadingArticles}
           error={articlesError}
         />
